@@ -134,16 +134,10 @@ threathunter-pro/
 
 ---
 
-## 🔨 Build Phases
-
-- [x] **Phase 1** — Docker infrastructure (Kafka, ES, Redis, Kibana)
-- [ ] **Phase 2** — Ingestion layer (PCAP + EVTX parsers)
-- [ ] **Phase 3** — ML engine (Autoencoder + LSTM)
-- [ ] **Phase 4** — Alert engine
-- [ ] **Phase 5** — FastAPI backend
-- [ ] **Phase 6** — React dashboard
-
----
-
-## 📄 License
-MIT
+## ⚠️ Model Weights
+ML model weights are not included in this repo (too large for GitHub).
+After cloning, train the models by running:
+```
+cd ml_engine
+python trainer.py --synthetic 10000 --epochs 30
+```
