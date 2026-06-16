@@ -1,0 +1,23 @@
+# =============================================================
+#  ThreatHunter Pro — Ingestion Layer Dependencies
+# =============================================================
+
+# Kafka
+confluent-kafka==2.3.0
+
+# PCAP parsing
+scapy==2.5.0
+
+# Windows EVTX parsing
+python-evtx==0.7.4
+lxml==5.1.0
+
+# Elasticsearch client
+elasticsearch==8.11.0
+
+# Utilities
+python-dotenv==1.0.0
+loguru==0.7.2
+
+# For mock data generation
+faker==22.0.0

@@ -1,0 +1,19 @@
+# =============================================================
+#  ThreatHunter Pro — ML Engine Dependencies
+# =============================================================
+
+# Core ML
+tensorflow==2.15.0
+numpy==1.26.4
+scikit-learn==1.4.0
+joblib==1.3.2
+
+# Kafka consumer
+confluent-kafka==2.3.0
+
+# Elasticsearch
+elasticsearch==8.11.0
+
+# Utilities
+python-dotenv==1.0.0
+loguru==0.7.2

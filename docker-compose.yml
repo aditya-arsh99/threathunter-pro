@@ -1,0 +1,256 @@
+# =============================================================
+#  ThreatHunter Pro — Infrastructure Stack
+#  Services: Zookeeper, Kafka, Elasticsearch, Kibana, Redis
+# =============================================================
+
+networks:
+  threathunter-net:
+    driver: bridge
+
+volumes:
+  es_data:
+    driver: local
+  redis_data:
+    driver: local
+  kafka_data:
+    driver: local
+
+services:
+
+  # -----------------------------------------------------------
+  # ZOOKEEPER — Kafka dependency
+  # -----------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: threathunter-zookeeper
+    hostname: zookeeper
+    networks:
+      - threathunter-net
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | nc localhost 2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # KAFKA — Message queue (handles 1M+ events/day)
+  # -----------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: threathunter-kafka
+    hostname: kafka
+    networks:
+      - threathunter-net
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"       # Internal
+      - "29092:29092"     # External (host machine access)
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 4
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168         # 7 days retention
+      KAFKA_LOG_RETENTION_BYTES: 1073741824  # 1 GB max per topic
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # KAFKA UI — Browser-based Kafka management (optional but useful)
+  # -----------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: threathunter-kafka-ui
+    networks:
+      - threathunter-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: threathunter
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # KAFKA TOPIC INIT — Creates required topics on startup
+  # -----------------------------------------------------------
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: threathunter-kafka-init
+    networks:
+      - threathunter-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      echo 'Waiting for Kafka to be ready...'
+      kafka-topics --bootstrap-server kafka:9092 --list
+
+      echo 'Creating topic: network-flows'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+        --topic network-flows --partitions 4 --replication-factor 1 \
+        --config retention.ms=604800000
+
+      echo 'Creating topic: windows-events'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+        --topic windows-events --partitions 4 --replication-factor 1 \
+        --config retention.ms=604800000
+
+      echo 'Creating topic: threat-alerts'
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+        --topic threat-alerts --partitions 2 --replication-factor 1 \
+        --config retention.ms=2592000000
+
+      echo 'Topics created:'
+      kafka-topics --bootstrap-server kafka:9092 --list
+      "
+
+  # -----------------------------------------------------------
+  # ELASTICSEARCH 8.x — Event storage and fast indexing
+  # -----------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: threathunter-elasticsearch
+    hostname: elasticsearch
+    networks:
+      - threathunter-net
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    environment:
+      - node.name=threathunter-es01
+      - cluster.name=threathunter-cluster
+      - discovery.type=single-node
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-ThreatHunter@2024}
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false   # SSL off for local dev
+      - xpack.license.self_generated.type=basic
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u elastic:${ELASTIC_PASSWORD:-ThreatHunter@2024} http://localhost:9200/_cluster/health | grep -qv '\"status\":\"red\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # KIBANA — Elasticsearch visualisation
+  # -----------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: threathunter-kibana
+    hostname: kibana
+    networks:
+      - threathunter-net
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD:-ThreatHunter@2024}
+      - XPACK_SECURITY_ENABLED=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"overall\":{\"level\":\"available\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # ELASTICSEARCH SETUP — Creates indices and sets passwords
+  # -----------------------------------------------------------
+  es-setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: threathunter-es-setup
+    networks:
+      - threathunter-net
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./scripts/es_setup.sh:/es_setup.sh:ro
+    entrypoint: ["bash", "/es_setup.sh"]
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-ThreatHunter@2024}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD:-ThreatHunter@2024}
+
+  # -----------------------------------------------------------
+  # REDIS — Alert deduplication, rate limiting, caching
+  # -----------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: threathunter-redis
+    hostname: redis
+    networks:
+      - threathunter-net
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # -----------------------------------------------------------
+  # REDIS COMMANDER — Browser-based Redis GUI (optional)
+  # -----------------------------------------------------------
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: threathunter-redis-ui
+    networks:
+      - threathunter-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8091:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    restart: unless-stopped

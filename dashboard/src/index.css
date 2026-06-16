@@ -1,0 +1,106 @@
+:root {
+  --void:       #070a0c;
+  --surface:    #0d1117;
+  --surface2:   #111820;
+  --surface3:   #161e28;
+  --border:     #1e2d3d;
+  --border2:    #243040;
+  --cyan:       #00d9ff;
+  --cyan-dim:   #0088aa;
+  --green:      #00ff88;
+  --green-dim:  #006633;
+  --amber:      #f59e0b;
+  --red:        #ff3b5c;
+  --purple:     #a855f7;
+  --text:       #c9d8e8;
+  --text-dim:   #5a7a96;
+  --text-faint: #2a4055;
+  --font-mono:  "JetBrains Mono", monospace;
+  --font-ui:    "Rajdhani", sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,217,255,0.012) 2px,rgba(0,217,255,0.012) 4px);
+  pointer-events: none;
+  z-index: 9999;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: linear-gradient(rgba(30,45,61,0.25) 1px,transparent 1px),linear-gradient(90deg,rgba(30,45,61,0.25) 1px,transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+#root { position: relative; z-index: 1; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.sev-critical { color: var(--red); }
+.sev-high     { color: #ff7a3d; }
+.sev-medium   { color: var(--amber); }
+.sev-low      { color: var(--cyan); }
+.sev-none     { color: var(--text-dim); }
+.badge { display:inline-block; padding:1px 8px; border-radius:2px; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; }
+.badge-critical { background:rgba(255,59,92,0.15);  color:var(--red);      border:1px solid rgba(255,59,92,0.3); }
+.badge-high     { background:rgba(255,122,61,0.15); color:#ff7a3d;         border:1px solid rgba(255,122,61,0.3); }
+.badge-medium   { background:rgba(245,158,11,0.15); color:var(--amber);    border:1px solid rgba(245,158,11,0.3); }
+.badge-low      { background:rgba(0,217,255,0.10);  color:var(--cyan);     border:1px solid rgba(0,217,255,0.2); }
+.badge-none     { background:rgba(90,122,150,0.10); color:var(--text-dim); border:1px solid var(--border); }
+@keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+@keyframes blink  { 0%,100%{opacity:1} 49%{opacity:1} 50%,99%{opacity:0} }
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--cyan-dim),transparent);
+  opacity:0.5;
+}
+.card-title {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 2px;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { border-color:var(--cyan-dim); color:var(--cyan); background:rgba(0,217,255,0.05); }
+.btn-sm { font-size:10px; padding:2px 8px; }

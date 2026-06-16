@@ -1,0 +1,34 @@
+# Environment — contains passwords
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+logs/
+*.log
+
+# ML Model weights — too large for GitHub
+data/models/*.keras
+data/models/*.h5
+data/models/*.npy
+data/models/*.pkl
+
+# Sample data — too large
+data/pcap_samples/
+data/evtx_samples/
+
+# Node
+dashboard/node_modules/
+dashboard/dist/
+
+# OS
+.DS_Store
+Thumbs.db

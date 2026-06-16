@@ -1,0 +1,24 @@
+# =============================================================
+#  Elasticsearch Configuration — ThreatHunter Pro
+# =============================================================
+
+cluster.name: "threathunter-cluster"
+node.name: "threathunter-es01"
+
+# Network
+network.host: 0.0.0.0
+http.port: 9200
+
+# Discovery
+discovery.type: single-node
+
+# Security
+xpack.security.enabled: true
+xpack.security.http.ssl.enabled: false
+
+# Performance tuning for high-volume event ingestion
+indices.memory.index_buffer_size: 20%
+thread_pool.write.queue_size: 1000
+
+# Index lifecycle
+indices.lifecycle.poll_interval: 10m
